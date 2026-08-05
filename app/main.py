@@ -338,3 +338,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/landing")
+def landing():
+    return FileResponse(STATIC_DIR / "landing.html")
