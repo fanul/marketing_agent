@@ -195,20 +195,7 @@ function go(key) {
 
 /* ------------------------------------------------------------- terminal */
 
-const BANNER = [
-  "██╗   ██╗██╗███╗   ███╗███████╗██████╗  ██████╗ ",
-  "██║   ██║██║████╗ ████║██╔════╝██╔══██╗██╔═══██╗",
-  "██║   ██║██║██╔████╔██║█████╗  ██████╔╝██║   ██║",
-  "╚██╗ ██╔╝██║██║╚██╔╝██║██╔══╝  ██╔══██╗██║   ██║",
-  " ╚████╔╝ ██║██║ ╚═╝ ██║███████╗██║  ██║╚██████╔╝",
-  "  ╚═══╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ",
-  " █████╗  ██████╗ ███████╗███╗   ██╗████████╗",
-  "██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝",
-  "███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ",
-  "██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ",
-  "██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ",
-  "╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ",
-].join("\n");
+const BANNER = `<span class="banner-hand">Vimero <span class="red">Agent</span> <span class="pen">✎</span></span>`;
 
 function toolLine(t) {
   const args = esc(JSON.stringify(t.args));
@@ -235,7 +222,7 @@ async function viewTerminal() {
       <span class="online">● ONLINE</span>
     </div>
     <div class="term-body" id="term-body">
-      <pre class="banner">${BANNER}</pre>
+      <div>${BANNER}</div>
       <div class="sysline">[ SYSTEM INITIALIZED ] — Vimero Agent Terminal v1.0</div>
       <div class="hintline">Ketik perintah, atau coba: <b>"siapa saja karyawan kita?"</b> ·
         <b>"jalankan riset produk untuk skincare lokal"</b> ·
