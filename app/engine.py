@@ -260,6 +260,50 @@ ORCH_TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "cari_riwayat",
+            "description": (
+                "Cari riwayat pekerjaan lama (workflow run maupun tugas individu) berdasarkan "
+                "kata kunci — judul, brief, atau isi hasil kerja. Pakai ini setiap kali bos "
+                "menanyakan pekerjaan sebelumnya, mis. 'pernah riset skincare belum?', "
+                "'gimana hasil storyboard minggu lalu', atau 'cari yang soal carousel kemarin'. "
+                "JANGAN menjawab dari ingatan sendiri — selalu cek dulu lewat tool ini."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kata_kunci": {"type": "string", "description": "kata kunci pencarian, mis. nama produk/topik/klien"},
+                },
+                "required": ["kata_kunci"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "lihat_detail_run",
+            "description": "Lihat detail lengkap satu workflow run (brief + output tiap step) berdasarkan run_id.",
+            "parameters": {
+                "type": "object",
+                "properties": {"run_id": {"type": "integer"}},
+                "required": ["run_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "lihat_detail_tugas",
+            "description": "Lihat detail lengkap satu tugas individu (deskripsi + hasil kerja) berdasarkan task_id.",
+            "parameters": {
+                "type": "object",
+                "properties": {"task_id": {"type": "integer"}},
+                "required": ["task_id"],
+            },
+        },
+    },
 ]
 
 
@@ -350,6 +394,46 @@ async def _tool_status(_args: dict) -> dict:
     }
 
 
+async def _tool_cari_riwayat(args: dict) -> dict:
+    kw = (args.get("kata_kunci") or "").strip()
+    if not kw:
+        return {"error": "kata_kunci wajib diisi"}
+
+    def snip(text: str, n: int = 180) -> str:
+        text = text or ""
+        return (text[:n] + "…") if len(text) > n else text
+
+    runs = db.search_runs(kw)
+    tasks = db.search_tasks(kw)
+    return {
+        "ditemukan": len(runs) + len(tasks),
+        "runs": [{"run_id": r["id"], "judul": r["title"], "status": r["status"],
+                  "mulai": r["started_at"],
+                  "cuplikan": snip(r["output"] or r["input"])} for r in runs],
+        "tugas": [{"task_id": t["id"], "judul": t["title"], "karyawan": t["agent_name"],
+                   "status": t["status"],
+                   "cuplikan": snip(t["result"] or t["description"])} for t in tasks],
+    }
+
+
+async def _tool_lihat_detail_run(args: dict) -> dict:
+    run = db.get_run_with_steps(args.get("run_id"))
+    if not run:
+        return {"error": "Run tidak ditemukan"}
+    return {"run": run}
+
+
+async def _tool_lihat_detail_tugas(args: dict) -> dict:
+    task = db.query_one(
+        "SELECT t.*, a.name AS agent_name FROM tasks t "
+        "LEFT JOIN agents a ON a.id = t.agent_id WHERE t.id = ?",
+        (args.get("task_id"),),
+    )
+    if not task:
+        return {"error": "Tugas tidak ditemukan"}
+    return {"tugas": task}
+
+
 TOOL_IMPL = {
     "karyawan": _tool_karyawan,
     "tambah_karyawan": _tool_tambah_karyawan,
@@ -358,6 +442,9 @@ TOOL_IMPL = {
     "jalankan_workflow": _tool_jalankan_workflow,
     "tugaskan_karyawan": _tool_tugaskan_karyawan,
     "status_perusahaan": _tool_status,
+    "cari_riwayat": _tool_cari_riwayat,
+    "lihat_detail_run": _tool_lihat_detail_run,
+    "lihat_detail_tugas": _tool_lihat_detail_tugas,
 }
 
 
@@ -368,12 +455,18 @@ def orchestrator_system_prompt() -> str:
         "marketing yang seluruh karyawannya adalah agent AI. Kamu asisten utama bos "
         "(pengguna) untuk menjalankan perusahaan.\n\n"
         "Kemampuanmu lewat tools: lihat/rekrut karyawan, buat studio, lihat/jalankan "
-        "workflow, beri tugas langsung, dan cek status perusahaan.\n\n"
+        "workflow, beri tugas langsung, cek status perusahaan, dan mengingat riwayat "
+        "pekerjaan lama (cari_riwayat, lihat_detail_run, lihat_detail_tugas) — seluruh "
+        "run dan tugas yang pernah dikerjakan tim tersimpan permanen dan bisa kamu buka lagi.\n\n"
         "Aturan:\n"
         "- Bahasa Indonesia santai-profesional (boleh 'lur', 'bos' seperlunya), tetap jelas.\n"
         "- Kalau butuh data (mis. siapa saja karyawan), SELALU panggil tool, jangan mengarang.\n"
         "- Untuk pekerjaan kreatif besar (riset produk, storyboard, carousel) arahkan ke "
         "jalankan_workflow; untuk tugas kecil spesifik gunakan tugaskan_karyawan.\n"
+        "- Kalau bos menyinggung pekerjaan sebelumnya, bertanya 'pernah belum', 'gimana hasil "
+        "kemarin', atau semacamnya — panggil cari_riwayat dulu sebelum menjawab. Kalau hasil "
+        "pencarian menunjuk ke satu run/tugas spesifik, pakai lihat_detail_run atau "
+        "lihat_detail_tugas untuk ambil detail lengkapnya sebelum menjawab.\n"
         "- Setelah menjalankan sesuatu, jelaskan singkat apa yang terjadi dan di mana "
         "hasilnya bisa dilihat.\n"
         "- Format jawaban dengan markdown."

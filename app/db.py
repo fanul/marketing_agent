@@ -330,3 +330,40 @@ def add_message(role: str, content: str, meta: dict | None = None) -> int:
         "INSERT INTO messages(role, content, meta, created_at) VALUES(?,?,?,?)",
         (role, content, json.dumps(meta or {}), now()),
     )
+
+
+# ---------------------------------------------------------------- riwayat / memory
+
+def search_runs(keyword: str, limit: int = 8) -> list[dict]:
+    """Cari workflow run lama berdasarkan judul, brief, atau isi output."""
+    like = f"%{keyword}%"
+    return query(
+        "SELECT id, title, status, input, output, started_at, finished_at FROM runs "
+        "WHERE title LIKE ? OR input LIKE ? OR output LIKE ? "
+        "ORDER BY id DESC LIMIT ?",
+        (like, like, like, limit),
+    )
+
+
+def search_tasks(keyword: str, limit: int = 8) -> list[dict]:
+    """Cari tugas individu lama berdasarkan judul, deskripsi, atau hasil."""
+    like = f"%{keyword}%"
+    return query(
+        "SELECT t.id, t.title, t.description, t.status, t.result, t.created_at, "
+        "a.name AS agent_name FROM tasks t LEFT JOIN agents a ON a.id = t.agent_id "
+        "WHERE t.title LIKE ? OR t.description LIKE ? OR t.result LIKE ? "
+        "ORDER BY t.id DESC LIMIT ?",
+        (like, like, like, limit),
+    )
+
+
+def get_run_with_steps(run_id: int) -> dict | None:
+    run = query_one("SELECT * FROM runs WHERE id = ?", (run_id,))
+    if not run:
+        return None
+    run["steps"] = query(
+        "SELECT position, title, agent_name, status, output FROM run_steps "
+        "WHERE run_id = ? ORDER BY position",
+        (run_id,),
+    )
+    return run
